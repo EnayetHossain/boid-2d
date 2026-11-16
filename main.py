@@ -1,14 +1,17 @@
 from typing import Tuple
 import pygame as pg
+import time
 from boid import Boid
 
 class Game:
     def __init__(self, size: Tuple[int, int]) -> None:
         pg.init()
         self.__screen = pg.display.set_mode(size)
+        pg.display.set_caption("Boids")
+
         self.__clock = pg.time.Clock()
         self.__running = True
-        self.__boids = [Boid(self.__screen) for _ in range(100)]
+        self.__boids = [Boid(self.__screen) for _ in range(20)]
 
     def __handle_events(self) -> None:
         for event in pg.event.get():
@@ -16,8 +19,13 @@ class Game:
                 self.__running = False
 
     def run(self) -> None:
+        prev_time = time.perf_counter()
+
         while self.__running:
-            dt = self.__clock.tick() / 1000.0
+            now = time.perf_counter()
+            dt = now - prev_time
+            prev_time = now
+
             self.__handle_events()
 
             self.__screen.fill("black")
@@ -33,10 +41,11 @@ class Game:
 
             pg.display.flip()
 
-            pg.display.set_caption(f"Boids - FPS: {self.__clock.get_fps():.1f}")
+            self.__clock.tick()
+            pg.display.set_caption(f"Boids: {self.__clock.get_fps():.1f}")
 
         pg.quit()
 
 if __name__ == "__main__":
-    game = Game((1000,750))
+    game = Game((800, 600))
     game.run()

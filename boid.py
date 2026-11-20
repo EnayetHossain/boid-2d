@@ -6,10 +6,10 @@ from pygame import Surface, Vector2, draw
 class Boid:
     def __init__(self, screen: Surface) -> None:
         self.__pos = Vector2(randint(0, screen.get_size()[0]), randint(0, screen.get_size()[1]))
-        self.__velocity = Vector2(0, 0)
+        self.__velocity = Vector2(randint(-10, 10), randint(-10, 10))
         self.__acc = Vector2(0, 0)
-        self.__max_speed = 300
-        self.__max_force = 300
+        self.__max_speed = 400
+        self.__max_force = 400
         self.__screen = screen
         self.__white = (255, 255, 255)
         # self.__light_gray = (18, 18, 18)
@@ -17,9 +17,9 @@ class Boid:
 
         self.__shape = [
                 Vector2(0, -10), # head
-                Vector2(-10, 15), # bottom left
-                Vector2(0, 7.5), # bump in middle bottom
-                Vector2(10, 15) # bottom right
+                Vector2(-4, 5), # bottom left
+                Vector2(0, 2.5), # bump in middle bottom
+                Vector2(4, 5) # bottom right
                 ]
 
         self.__pr = 100 # persection radius
@@ -70,9 +70,55 @@ class Boid:
 
         return direction
 
+    def __alignment(self, neighbors: List["Boid"]) -> Vector2:
+        alignment = Vector2(0, 0)
+
+        for neighbor in neighbors:
+            alignment += neighbor.velocity
+
+        if len(neighbors) > 0:
+            alignment /= len(neighbors)
+
+            if alignment.length() > 0:
+                desired_velocity = alignment.normalize() * self.__max_speed
+
+                alignment = desired_velocity - self.__velocity
+
+                if alignment.length() > self.__max_force:
+                    alignment.scale_to_length(self.__max_force)
+
+                return alignment
+
+        return alignment
+
+    def __cohesion(self, neighbors: List["Boid"]) -> Vector2:
+        center = Vector2(0, 0)
+
+        if not neighbors:
+            return center
+
+        for neighbor in neighbors:
+            center += neighbor.pos
+
+        if len(neighbors) > 0:
+            center /= len(neighbors)
+            center -= self.__pos
+
+            if center.length() == 0:
+                return Vector2(0, 0)
+
+            if center.length() > 0:
+                center = center.normalize() * self.__max_speed
+                center -= self.__velocity
+
+            if center.length() > self.__max_force:
+                center.scale_to_length(self.__max_force)
+
+        return center
+
     def __boundary(self) -> Vector2:
         steering = Vector2(0, 0)
-        margin = 10
+        margin = 40
 
         width, height = self.__screen.get_size()
 
@@ -93,12 +139,16 @@ class Boid:
         neighbors = self.__get_neighbors(boids)
 
         separation_force = self.__separation(neighbors)
+        alignment_force = self.__alignment(neighbors)
+        cohesion_force = self.__cohesion(neighbors)
         boundary_force = self.__boundary()
 
-        separation_weight = 1.3
-        boundary_weight = 2.0
+        separation_weight = 1.8
+        alignment_weight = 1.2
+        cohesion_weight = 1.0
+        boundary_weight = 4.0
 
-        self.__acc = (separation_force * separation_weight + boundary_force * boundary_weight)
+        self.__acc = (separation_force * separation_weight + alignment_force * alignment_weight + cohesion_force * cohesion_weight + boundary_force * boundary_weight)
 
         if self.__acc.length() > self.__max_force:
             self.__acc.scale_to_length(self.__max_force)

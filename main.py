@@ -8,10 +8,11 @@ class Game:
         pg.init()
         self.__screen = pg.display.set_mode(size)
         pg.display.set_caption("Boids")
+        pg
 
         self.__clock = pg.time.Clock()
         self.__running = True
-        self.__boids = [Boid(self.__screen) for _ in range(20)]
+        self.__boids = [Boid(self.__screen) for _ in range(100)]
 
     def __handle_events(self) -> None:
         for event in pg.event.get():

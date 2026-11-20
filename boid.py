@@ -1,6 +1,9 @@
-from typing import List
+from typing import Dict, List, Tuple
 from random import randint 
 from pygame import Surface, Vector2, draw
+
+Cell = Tuple[int, int]
+SpatialGrid = Dict[Cell, List["Boid"]]
 
 
 class Boid:
@@ -33,42 +36,54 @@ class Boid:
     def velocity(self) -> Vector2:
         return self.__velocity
 
-    def __get_neighbors(self, boids: List["Boid"]) -> List["Boid"]:
+    def __get_neighbors(self, grid: SpatialGrid) -> List["Boid"]:
         neighbors: List["Boid"] = []
 
-        for boid in boids:
-            if boid is self:
-                continue
+        cell_size = self.__pr
 
-            if self.__pos.distance_to(boid.pos) < self.__pr:
-                neighbors.append(boid)
+        cell_x = int(self.__pos.x // cell_size)
+        cell_y = int(self.__pos.y // cell_size)
+
+        for offset_x in (-1, 0, 1):
+            for offset_y in (-1, 0, 1):
+                cell = (cell_x + offset_x, cell_y + offset_y)
+
+                for boid in grid.get(cell, ()):
+                    if boid is self:
+                        continue
+
+                    distance_sq = self.__pos.distance_squared_to(boid.pos)
+
+                    if distance_sq < self.__pr * self.__pr:
+                        neighbors.append(boid)
 
         return neighbors
 
     def __separation(self, neighbors: List["Boid"]) -> Vector2:
-        direction = Vector2(0, 0)
+        steering = Vector2(0, 0)
         total = 0
+
+        separation_sq = self.__sr * self.__sr
 
         for neighbor in neighbors:
             ad = self.__pos - neighbor.pos # avoidence distence
-            if 0 < ad.length() < self.__sr:
-                ad = ad.normalize()
+            distance_sq = ad.length_squared()
 
-                weight = 1.0 / ad.length()
-                direction += ad * weight
+            if 0 < distance_sq < separation_sq:
+                steering += ad / distance_sq
                 total += 1
 
         if total > 0:
-            direction /= total
+            steering /= total
 
-            if direction.length() > 0:
-                direction.scale_to_length(self.__max_speed)
-                direction -= self.__velocity
+            if steering.length_squared() > 0:
+                steering.scale_to_length(self.__max_speed)
+                steering -= self.__velocity
 
-                if direction.length() > self.__max_force:
-                    direction.scale_to_length(self.__max_force)
+                if steering.length_squared() > self.__max_force ** 2:
+                    steering.scale_to_length(self.__max_force)
 
-        return direction
+        return steering
 
     def __alignment(self, neighbors: List["Boid"]) -> Vector2:
         alignment = Vector2(0, 0)
@@ -117,26 +132,33 @@ class Boid:
         return center
 
     def __boundary(self) -> Vector2:
-        steering = Vector2(0, 0)
+        desired = Vector2(0, 0)
         margin = 40
 
         width, height = self.__screen.get_size()
 
         if self.__pos.x < margin:
-            steering.x = self.__max_speed
+            desired.x = self.__max_speed
 
         elif self.__pos.x > width - margin:
-            steering.x = -self.__max_speed
+            desired.x = -self.__max_speed
 
         if self.__pos.y < margin:
-            steering.y = self.__max_speed
+            desired.y = self.__max_speed
         elif self.__pos.y > height - margin:
-            steering.y = -self.__max_speed
+            desired.y = -self.__max_speed
+
+        if desired.length_squared() == 0:
+            return desired
+
+        steering = desired - self.__velocity
+        if steering.length_squared() > self.__max_force ** 2:
+            steering.scale_to_length(self.__max_force)
 
         return steering
 
-    def calculate_acceleration(self, boids: List["Boid"]) -> None:
-        neighbors = self.__get_neighbors(boids)
+    def calculate_acceleration(self, grid: SpatialGrid) -> None:
+        neighbors = self.__get_neighbors(grid)
 
         separation_force = self.__separation(neighbors)
         alignment_force = self.__alignment(neighbors)

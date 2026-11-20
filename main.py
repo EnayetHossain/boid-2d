@@ -1,18 +1,33 @@
-from typing import Tuple
+from collections import defaultdict
+from typing import DefaultDict, List, Tuple
 import pygame as pg
 import time
-from boid import Boid
+from boid import Boid, Cell, SpatialGrid
+
+# Cell = Tuple[int, int]
+# SpatialGrid = Dict[Cell, List["Boid"]]
 
 class Game:
     def __init__(self, size: Tuple[int, int]) -> None:
         pg.init()
         self.__screen = pg.display.set_mode(size)
         pg.display.set_caption("Boids")
-        pg
 
         self.__clock = pg.time.Clock()
         self.__running = True
         self.__boids = [Boid(self.__screen) for _ in range(100)]
+
+    def __build_spatial_gird(self) -> SpatialGrid:
+        grid: DefaultDict[Cell, List[Boid]] = defaultdict(list)
+
+        cell_size = 100
+        for boid in self.__boids:
+            cell_x = int(boid.pos.x // cell_size)
+            cell_y = int(boid.pos.y // cell_size)
+
+            grid[(cell_x, cell_y)].append(boid)
+
+        return grid
 
     def __handle_events(self) -> None:
         for event in pg.event.get():
@@ -31,8 +46,10 @@ class Game:
 
             self.__screen.fill("black")
 
+            grid = self.__build_spatial_gird()
+
             for boid in self.__boids:
-                boid.calculate_acceleration(self.__boids)
+                boid.calculate_acceleration(grid)
 
             for boid in self.__boids:
                 boid.update(dt)
